@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "channel": "preview",
+  "version": "0.4.0-beta.5",
+  "publishedAt": "2026-08-26T20:59:48.000Z",
+  "releaseUrl": "https://github.com/cyto-service/CytoFROST-Updates/releases/tag/windows-preview-v0.4.0-beta.5",
+  "assets": {
+    "windowsX64": {
+      "name": "CytoFROST-Setup-0.4.0-beta.5-x64.msi",
+      "url": "https://github.com/cyto-service/CytoFROST-Updates/releases/download/windows-preview-v0.4.0-beta.5/CytoFROST-Setup-0.4.0-beta.5-x64.msi",
+      "sha256": "a2b24adeb544f27d8627ec5e22b3e6f7d7aa5b3c7d364c64cf4f6b93cfaa4843",
+      "size": 220344320
+    }
+  }
+}
