@@ -1,0 +1,68 @@
+name: Publish signed update channel
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish
+        required: true
+        type: string
+      channel:
+        description: Update channel
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - stable
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out channel repository
+        uses: actions/checkout@v4
+
+      - name: Resolve release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-$EVENT_TAG}"
+          test -n "$tag"
+          mkdir -p .update-tmp
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" > .update-tmp/release.json
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS.txt --dir .update-tmp
+          echo "channel=${INPUT_CHANNEL:-}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate and sign manifest
+        env:
+          RELEASE_JSON_PATH: .update-tmp/release.json
+          CHECKSUMS_PATH: .update-tmp/SHA256SUMS.txt
+          UPDATE_CHANNEL: ${{ steps.release.outputs.channel }}
+          UPDATE_SIGNING_KEY_PEM: ${{ secrets.UPDATE_SIGNING_KEY_PEM }}
+        run: node scripts/publish-manifest.mjs
+
+      - name: Commit channel update
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add channels
+          if git diff --cached --quiet; then
+            echo "Channel already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Publish signed update manifest"
+          git push
