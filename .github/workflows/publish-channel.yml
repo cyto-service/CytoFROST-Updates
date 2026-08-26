@@ -43,6 +43,10 @@ jobs:
           mkdir -p .update-tmp
           gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" > .update-tmp/release.json
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS.txt --dir .update-tmp
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "CytoFROST-Setup-*-x64.msi" --dir .update-tmp
+          installer_count="$(find .update-tmp -maxdepth 1 -type f -name 'CytoFROST-Setup-*-x64.msi' | wc -l | tr -d ' ')"
+          test "$installer_count" = "1"
+          (cd .update-tmp && sha256sum --check SHA256SUMS.txt --ignore-missing --strict)
           echo "channel=${INPUT_CHANNEL:-}" >> "$GITHUB_OUTPUT"
 
       - name: Generate and sign manifest
