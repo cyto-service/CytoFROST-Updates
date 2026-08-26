@@ -1,8 +1,6 @@
 name: Publish signed update channel
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -35,7 +33,7 @@ jobs:
       - name: Check out channel repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.workflow_sha }}
+          ref: main
           persist-credentials: false
 
       - name: Resolve release
@@ -43,12 +41,11 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT_TAG: ${{ github.event.release.tag_name }}
           INPUT_TAG: ${{ inputs.tag }}
           INPUT_CHANNEL: ${{ inputs.channel }}
         run: |
           set -euo pipefail
-          tag="${INPUT_TAG:-$EVENT_TAG}"
+          tag="$INPUT_TAG"
           test -n "$tag"
           mkdir -p .update-tmp
           gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" > .update-tmp/release.json
