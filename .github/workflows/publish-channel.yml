@@ -33,7 +33,7 @@ jobs:
       - name: Check out channel repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Resolve release
