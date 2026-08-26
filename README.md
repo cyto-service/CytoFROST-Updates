@@ -14,6 +14,8 @@ private key. CytoFROST embeds only the public verification key, checks the exact
 manifest signature and verifies the SHA-256 digest and size of a downloaded
 installer before it offers an update.
 
+The `main` branch requires linear history and rejects force-pushes and deletion.
+
 Automatic update checks are opt-in. Preview builds may notify and download only;
 unattended installation stays disabled until the Windows installer is signed
 with the Cyto Service GmbH Authenticode certificate.
