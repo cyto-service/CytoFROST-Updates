@@ -6,11 +6,11 @@ no private customer data.
 
 Only maintainers of the `cyto-service` GitHub account can publish releases.
 Every channel manifest is signed with an Ed25519 key held in the approval-gated
-`update-signing` GitHub Environment, which accepts only `main` and the intended
-`v*` / `windows-preview-v*` release tags. The signing job has read-only
-repository access; a separate publishing job has write access but never
-receives the private key. CytoFROST embeds only the public verification key,
-checks the exact
+`update-signing` GitHub Environment, which accepts only `main`. Publishing is a
+deliberate manual workflow: a release tag is read only through the GitHub API
+and never executed as signing code. The signing job has read-only repository
+access; a separate publishing job has write access but never receives the
+private key. CytoFROST embeds only the public verification key, checks the exact
 manifest signature and verifies the SHA-256 digest and size of a downloaded
 installer before it offers an update.
 
