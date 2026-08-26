@@ -55,7 +55,7 @@ const manifest = {
 
 const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 const signature = sign(null, manifestBytes, createPrivateKey(signingKey)).toString("base64");
-const outputDirectory = path.resolve("channels");
+const outputDirectory = path.resolve(process.env.UPDATE_OUTPUT_DIRECTORY || "channels");
 await mkdir(outputDirectory, { recursive: true });
 await writeFile(path.join(outputDirectory, `${channel}.json`), manifestBytes);
 await writeFile(path.join(outputDirectory, `${channel}.sig`), `${signature}\n`, "utf8");
