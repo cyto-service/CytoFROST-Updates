@@ -71,7 +71,7 @@ jobs:
           CHECKSUMS_PATH: .update-tmp/SHA256SUMS.txt
           UPDATE_CHANNEL: ${{ steps.release.outputs.channel }}
           UPDATE_SIGNING_KEY_PEM: ${{ secrets.UPDATE_SIGNING_KEY_PEM }}
-          UPDATE_OUTPUT_DIRECTORY: .signed-channel
+          UPDATE_OUTPUT_DIRECTORY: signed-channel
         shell: bash
         run: |
           set -euo pipefail
@@ -84,7 +84,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signed-update-channel-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .signed-channel/
+          path: signed-channel/
           if-no-files-found: error
           retention-days: 1
 
@@ -101,14 +101,14 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: signed-update-channel-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .signed-channel
+          path: signed-channel
 
       - name: Commit channel update
         shell: bash
         run: |
           set -euo pipefail
-          cp .signed-channel/*.json channels/
-          cp .signed-channel/*.sig channels/
+          cp signed-channel/*.json channels/
+          cp signed-channel/*.sig channels/
           git add channels
           if git diff --cached --quiet; then
             echo "Channel already up to date."
