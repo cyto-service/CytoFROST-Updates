@@ -19,6 +19,8 @@ if (!installer) throw new Error("The release does not contain one Windows x64 MS
 
 const versionMatch = /^CytoFROST-Setup-(.+)-x64\.msi$/i.exec(installer.name);
 if (!versionMatch) throw new Error(`Could not determine a version from ${installer.name}.`);
+const publishedAt = new Date(release.published_at);
+if (!Number.isFinite(publishedAt.getTime())) throw new Error("Release publication date is missing or invalid.");
 
 const checksumLines = (await readFile(checksumsPath, "utf8")).split(/\r?\n/);
 const checksumLine = checksumLines.find((line) => line.trim().endsWith(`  ${installer.name}`));
@@ -31,7 +33,7 @@ const manifest = {
   schemaVersion: 1,
   channel,
   version: versionMatch[1],
-  publishedAt: release.published_at,
+  publishedAt: publishedAt.toISOString(),
   releaseUrl: release.html_url,
   assets: {
     windowsX64: {
