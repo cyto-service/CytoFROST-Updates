@@ -18,15 +18,24 @@ on:
           - preview
           - stable
 
-permissions:
-  contents: write
+permissions: {}
+
+concurrency:
+  group: signed-update-channel
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  sign:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment:
+      name: update-signing
     steps:
       - name: Check out channel repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Resolve release
         id: release
@@ -47,7 +56,14 @@ jobs:
           installer_count="$(find .update-tmp -maxdepth 1 -type f -name 'CytoFROST-Setup-*-x64.msi' | wc -l | tr -d ' ')"
           test "$installer_count" = "1"
           (cd .update-tmp && sha256sum --check SHA256SUMS.txt --ignore-missing --strict)
-          echo "channel=${INPUT_CHANNEL:-}" >> "$GITHUB_OUTPUT"
+          if [[ -n "${INPUT_CHANNEL:-}" ]]; then
+            channel="$INPUT_CHANNEL"
+          elif jq -e '.prerelease == true' .update-tmp/release.json >/dev/null; then
+            channel="preview"
+          else
+            channel="stable"
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
 
       - name: Generate and sign manifest
         env:
@@ -55,12 +71,44 @@ jobs:
           CHECKSUMS_PATH: .update-tmp/SHA256SUMS.txt
           UPDATE_CHANNEL: ${{ steps.release.outputs.channel }}
           UPDATE_SIGNING_KEY_PEM: ${{ secrets.UPDATE_SIGNING_KEY_PEM }}
-        run: node scripts/publish-manifest.mjs
+          UPDATE_OUTPUT_DIRECTORY: .signed-channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/publish-manifest.mjs
+          if [[ "$UPDATE_CHANNEL" == "stable" ]]; then
+            UPDATE_CHANNEL=preview node scripts/publish-manifest.mjs
+          fi
+
+      - name: Transfer signed channel files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-update-channel-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .signed-channel/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: sign
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out channel repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Receive signed channel files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: signed-update-channel-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .signed-channel
 
       - name: Commit channel update
         shell: bash
         run: |
           set -euo pipefail
+          cp .signed-channel/*.json channels/
+          cp .signed-channel/*.sig channels/
           git add channels
           if git diff --cached --quiet; then
             echo "Channel already up to date."
