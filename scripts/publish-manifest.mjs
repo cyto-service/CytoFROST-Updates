@@ -19,6 +19,14 @@ if (!installer) throw new Error("The release does not contain one Windows x64 MS
 
 const versionMatch = /^CytoFROST-Setup-(.+)-x64\.msi$/i.exec(installer.name);
 if (!versionMatch) throw new Error(`Could not determine a version from ${installer.name}.`);
+const version = versionMatch[1];
+const semanticVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+const semanticVersion = semanticVersionPattern.exec(version);
+if (!semanticVersion) throw new Error(`Installer version is not valid semantic versioning: ${version}`);
+if (channel === "stable" && semanticVersion[4]) throw new Error("A prerelease cannot be published to the stable channel.");
+if (!Number.isSafeInteger(installer.size) || installer.size <= 0 || installer.size > 500 * 1024 * 1024) {
+  throw new Error(`Installer size is invalid or exceeds the 500 MiB client limit: ${installer.size}`);
+}
 const publishedAt = new Date(release.published_at);
 if (!Number.isFinite(publishedAt.getTime())) throw new Error("Release publication date is missing or invalid.");
 
@@ -32,7 +40,7 @@ if (!sha256 || !/^[a-f0-9]{64}$/.test(sha256)) {
 const manifest = {
   schemaVersion: 1,
   channel,
-  version: versionMatch[1],
+  version,
   publishedAt: publishedAt.toISOString(),
   releaseUrl: release.html_url,
   assets: {
