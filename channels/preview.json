@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "channel": "preview",
-  "version": "0.4.0-beta.6",
-  "publishedAt": "2026-08-31T17:34:14.000Z",
-  "releaseUrl": "https://github.com/cyto-service/CytoFROST-Updates/releases/tag/windows-preview-v0.4.0-beta.6",
+  "version": "0.4.0-beta.7",
+  "publishedAt": "2026-10-17T19:17:34.000Z",
+  "releaseUrl": "https://github.com/cyto-service/CytoFROST-Updates/releases/tag/windows-preview-v0.4.0-beta.7",
   "assets": {
     "windowsX64": {
-      "name": "CytoFROST-Setup-0.4.0-beta.6-x64.msi",
-      "url": "https://github.com/cyto-service/CytoFROST-Updates/releases/download/windows-preview-v0.4.0-beta.6/CytoFROST-Setup-0.4.0-beta.6-x64.msi",
-      "sha256": "044cf97884d8f16ec8a19488dd1a26ad6650aaea111ac5ec5b3922b6f1b2daf1",
-      "size": 219885568
+      "name": "CytoFROST-Setup-0.4.0-beta.7-x64.msi",
+      "url": "https://github.com/cyto-service/CytoFROST-Updates/releases/download/windows-preview-v0.4.0-beta.7/CytoFROST-Setup-0.4.0-beta.7-x64.msi",
+      "sha256": "0df1b85fd13b021703dafdc10e365c7afbc8a2456e7157bcc51e8725d43770fe",
+      "size": 204207406
     }
   }
 }
