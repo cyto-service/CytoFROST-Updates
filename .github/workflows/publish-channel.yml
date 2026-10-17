@@ -29,6 +29,8 @@ jobs:
       contents: read
     environment:
       name: update-signing
+    outputs:
+      signed-channel: ${{ steps.transfer.outputs.signed-channel }}
     steps:
       - name: Check out channel repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -79,12 +81,32 @@ jobs:
           fi
 
       - name: Transfer signed channel files
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: signed-update-channel-${{ github.run_id }}-${{ github.run_attempt }}
-          path: signed-channel/
-          if-no-files-found: error
-          retention-days: 1
+        id: transfer
+        env:
+          UPDATE_CHANNEL: ${{ steps.release.outputs.channel }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { appendFile, lstat, readFile, readdir } from "node:fs/promises";
+          const channel = process.env.UPDATE_CHANNEL;
+          if (!["preview", "stable"].includes(channel)) throw new Error("Unsupported update channel.");
+          const channels = channel === "stable" ? ["preview", "stable"] : ["preview"];
+          const names = channels.flatMap(name => [`${name}.json`, `${name}.sig`]).sort();
+          const actual = (await readdir("signed-channel")).sort();
+          if (JSON.stringify(actual) !== JSON.stringify(names)) throw new Error("Unexpected signed channel files.");
+          const files = {};
+          for (const name of names) {
+            const file = `signed-channel/${name}`;
+            const stat = await lstat(file);
+            const limit = name.endsWith(".json") ? 32 * 1024 : 256;
+            if (!stat.isFile() || stat.size < 1 || stat.size > limit) throw new Error("Signed channel file exceeds its bound.");
+            files[name] = (await readFile(file)).toString("base64");
+          }
+          const payload = Buffer.from(JSON.stringify(files)).toString("base64");
+          if (payload.length > 120 * 1024) throw new Error("Signed channel transfer exceeds its bound.");
+          await appendFile(process.env.GITHUB_OUTPUT, `signed-channel=${payload}\n`);
+          NODE
 
   publish:
     needs: sign
@@ -97,11 +119,52 @@ jobs:
         with:
           ref: main
 
-      - name: Receive signed channel files
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: signed-update-channel-${{ github.run_id }}-${{ github.run_attempt }}
-          path: signed-channel
+      - name: Receive and verify signed channel files
+        env:
+          SIGNED_CHANNEL_PAYLOAD: ${{ needs.sign.outputs.signed-channel }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { createPublicKey, verify } from "node:crypto";
+          import { mkdir, rm, writeFile } from "node:fs/promises";
+          const publicKey = createPublicKey(`-----BEGIN PUBLIC KEY-----
+          MCowBQYDK2VwAyEAjV7RmUOFjCAcIH9moh52sCB0BEfPRQkcNiJLj4N1Iv8=
+          -----END PUBLIC KEY-----
+          `);
+          const channel = process.env.INPUT_CHANNEL;
+          if (!["preview", "stable"].includes(channel)) throw new Error("Unsupported update channel.");
+          const channels = channel === "stable" ? ["preview", "stable"] : ["preview"];
+          const names = channels.flatMap(name => [`${name}.json`, `${name}.sig`]).sort();
+          const payload = process.env.SIGNED_CHANNEL_PAYLOAD;
+          if (!payload || payload.length > 120 * 1024) throw new Error("Missing or oversized signed channel transfer.");
+          function decode(value, limit) {
+            if (typeof value !== "string" || value.length > Math.ceil(limit / 3) * 4) throw new Error("Invalid encoded channel file.");
+            const bytes = Buffer.from(value, "base64");
+            if (bytes.length < 1 || bytes.length > limit || bytes.toString("base64") !== value) throw new Error("Noncanonical or oversized channel encoding.");
+            return bytes;
+          }
+          const files = JSON.parse(decode(payload, 90 * 1024).toString("utf8"));
+          if (!files || Array.isArray(files) || typeof files !== "object" ||
+              JSON.stringify(Object.keys(files).sort()) !== JSON.stringify(names)) {
+            throw new Error("Signed channel transfer has unexpected filenames.");
+          }
+          const verified = new Map();
+          for (const name of channels) {
+            const manifest = decode(files[`${name}.json`], 32 * 1024);
+            const signatureText = decode(files[`${name}.sig`], 256);
+            const signature = decode(signatureText.toString("utf8").trim(), 64);
+            if (signature.length !== 64 || !verify(null, manifest, publicKey, signature)) throw new Error("Channel signature verification failed.");
+            const parsed = JSON.parse(manifest.toString("utf8"));
+            if (parsed.schemaVersion !== 1 || parsed.channel !== name) throw new Error("Signed manifest channel does not match its filename.");
+            verified.set(`${name}.json`, manifest);
+            verified.set(`${name}.sig`, signatureText);
+          }
+          await rm("signed-channel", { recursive: true, force: true });
+          await mkdir("signed-channel", { recursive: true });
+          for (const [name, bytes] of verified) await writeFile(`signed-channel/${name}`, bytes);
+          NODE
 
       - name: Commit channel update
         shell: bash
@@ -118,3 +181,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Publish signed update manifest"
           git push
+
